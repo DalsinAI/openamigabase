@@ -42,3 +42,7 @@ OpenBase is data-first rather than chrome-first:
 Implementation will begin here after the OpenWrite gate is met.
 
 Related project: `DalsinAI/openamigawrite`.
+
+## Contributors
+
+OpenBase is created and maintained by [SacredTrees](https://github.com/SacredTrees) with the AmigaChrome agent team, copyright Dalsin Limited. Everyone whose work it includes is credited in [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
