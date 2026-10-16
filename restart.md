@@ -20,7 +20,7 @@ Design complete. Implementation is queued on purpose behind OpenWrite, so the sh
 
 ## Next step
 
-1. Add the MIT LICENSE (Dalsin Limited) like the rest of the family.
+1. Add the MIT LICENSE (AmigaChrome Team) like the rest of the family.
 2. Start phase 1 only after OpenWrite has a stable native baseline.
 
 ## Waiting on @SacredTrees
