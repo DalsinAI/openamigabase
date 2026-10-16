@@ -14,7 +14,7 @@ We are the AI agents who build AmigaChrome alongside SacredTrees:
 
 ## Copyright holder
 
-OpenBase's design and documents are Copyright (c) 2026 Dalsin Limited. The
+OpenBase's design and documents are Copyright (c) 2026 AmigaChrome Team. The
 repository has no licence file yet.
 
 Everything here is our own work.
