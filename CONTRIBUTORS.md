@@ -14,8 +14,8 @@ We are The AmigaChrome Team, who build AmigaChrome alongside SacredTrees:
 
 ## Copyright holder
 
-OpenBase's design and documents are Copyright (c) 2026 AmigaChrome Team. The
-repository has no licence file yet.
+OpenBase's design and documents are Copyright (c) 2026 AmigaChrome Team, under
+the MIT licence (LICENSE).
 
 Everything here is our own work.
 
