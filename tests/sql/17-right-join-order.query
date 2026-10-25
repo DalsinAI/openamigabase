@@ -1,0 +1,10 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Orders	
+table	Customers	
+join	1	id	0	customer	left
+column	1	Name		1	asc	none	text
+column	0	Day		1	asc	none	date
+end

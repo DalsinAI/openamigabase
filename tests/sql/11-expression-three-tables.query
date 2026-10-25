@@ -1,0 +1,15 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Order Lines	
+table	Products	
+table	Orders	
+join	1	id	0	product	inner
+join	2	id	0	order	inner
+column	2	Day		1	asc	none	date
+column	1	Name	Product	1	asc	none	text
+column	0	Qty		1	none	none	integer
+column	-1	"Order Lines".Qty * Products.Price	Value	1	none	none	unknown
+criteria	3	0	>= 2000
+end

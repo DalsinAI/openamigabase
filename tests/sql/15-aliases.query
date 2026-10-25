@@ -1,0 +1,11 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Customers	c
+table	Orders	o
+join	0	id	1	customer	inner
+column	0	Town		1	asc	group	text
+column	1	Total	Largest	1	none	max	currency
+column	1	*		1	none	count	unknown
+end

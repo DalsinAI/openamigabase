@@ -1,0 +1,8 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Customers	
+column	0	Name		1	asc	none	text
+column	0	Town		1	none	none	text
+end

@@ -1,0 +1,43 @@
+# Builds OpenBase's portable core (src/core) and runs its host tests,
+# `make test` and `make check` (AddressSanitizer and UBSan), on GitHub's
+# runner: once on Ubuntu's SQLite, once on the SQLite amalgamation that
+# openamigasqlite pins (scripts/sqlite.lock), fetched and checked by
+# SHA-256 at build time and never committed. There is no Amiga code to
+# build yet (the program comes in phase B2).
+# MIT, Copyright (c) 2026 AmigaChrome Team.
+name: Host tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: host-tests-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  ubuntu-sqlite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential pkg-config libsqlite3-dev
+      - name: make test
+        run: make test
+      - name: make check
+        run: make check
+  pinned-sqlite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch openamigasqlite's SQLite
+        run: scripts/fetch-sqlite.sh third_party/sqlite
+      - name: make test
+        run: make test SQLITE_SRC=third_party/sqlite/sqlite-amalgamation-3530400
+      - name: make check
+        run: make check SQLITE_SRC=third_party/sqlite/sqlite-amalgamation-3530400

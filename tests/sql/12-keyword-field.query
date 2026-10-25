@@ -1,0 +1,9 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Products	
+column	0	Name		1	asc	none	text
+column	0	Group		1	none	none	choice
+criteria	1	0	Tools
+end

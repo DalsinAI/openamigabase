@@ -1,0 +1,10 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Customers	
+table	Orders	
+join	0	id	1	customer	left
+column	0	Name		1	asc	group	text
+column	1	id	Orders	1	none	count	counter
+end

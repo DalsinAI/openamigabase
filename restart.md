@@ -8,28 +8,30 @@ OpenBase, the Open relational database and application builder: tables, visual q
 
 ## Where it stands
 
-Design complete. Implementation is queued on purpose behind OpenWrite, so the shared document, UI and printing stack settles first. The repo has no LICENSE file yet.
-
-## Merged lately
-
-- #2 (9460474, 2026-10-06): Credit who made OpenBase: CONTRIBUTORS.md
+_Updated 25 October 2026 by Team 5._ Dale said to start (25 October, 02:55)
+and accepted the design's recommended answers: `docs/gfoffice/Design-OpenBase.md`
+in DalsinAI/gfoffice. Phase B1, the portable core, is in `src/core/` with host
+tests in `tests/` (`make test`, `make check`).
 
 ## Open pull requests
 
-- None.
+- Team 5's B1 draft (branch `team5/openbase-b1-20261025`).
 
 ## Next step
 
-1. Add the MIT LICENSE (AmigaChrome Team) like the rest of the family.
-2. Start phase 1 only after OpenWrite has a stable native baseline.
+1. B0 (openamigasqlite and the lab): the soft-float, single-thread flavour;
+   `unix-dotfile` locking; `DELETE` against `TRUNCATE` journals; the RAM:
+   issue; the size and speed of design section 11.3. Its answers go into
+   `ob_config` (`include/ob_core.h`), the one place they are set.
+2. B2: the Amiga program in `app/` on the core.
 
 ## Waiting on @SacredTrees
 
-- The go to start implementation.
+- Nothing for B1. B0 needs the stove and a lab.
 
 ## Who owns it
 
-No active thread.
+Team 5 (B1).
 
 ## Capsules
 
