@@ -56,6 +56,7 @@ void suite_query(void);
 void suite_golden(const char *dir);
 void suite_fuzz(void);
 void suite_alloc(void);
+void suite_record(void);
 
 /* Helpers (test_main.c) */
 char *obt_path(const char *name); /* in obt_dir; static buffer, rotating */
