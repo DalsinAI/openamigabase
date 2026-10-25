@@ -4,7 +4,7 @@ OpenBase is the OpenAmiga relational database and application builder: tables, r
 
 ## Status
 
-**Phase B1, the portable core, is being written.** The design is
+**Phase B2, the program, is in review; B1, the portable core, is done.** The design is
 [`docs/gfoffice/Design-OpenBase.md`](https://github.com/DalsinAI/gfoffice/blob/main/docs/gfoffice/Design-OpenBase.md)
 in DalsinAI/gfoffice (the GFOffice Suite's shared pieces are in
 `Design-Suite-Shared.md` beside it). OpenWrite's gate is met (that design,
@@ -12,10 +12,49 @@ section 1.1).
 
 | Phase | What | State |
 | --- | --- | --- |
-| B0 | SQLite's soft-float flavour in openamigasqlite; locking, journal and speed on the lab's 68040 | Not started (needs the stove and a lab) |
-| B1 | `.oadb` projects, field types, tables changed the copy-and-rename way, relationships, CSV in and out, the query model and its SQL. No window | In progress: `src/core/`, host-tested |
-| B2 | The program: object browser, table designer, datasheets, auto forms, relationships view, Datatype object fields | Not started |
+| B0 | SQLite's soft-float flavour; locking, journal and speed on the lab's 68040 | In part: `build-os3.sh` builds SQLite in soft float, one thread, temporary tables in memory; the unix-none VFS, with a public semaphore so one program at a time has a project. Journal modes and speed not measured yet |
+| B1 | `.oadb` projects, field types, tables changed the copy-and-rename way, relationships, CSV in and out, the query model and its SQL. No window | Done: `src/core/`, host-tested |
+| B2 | The program: object browser, table designer, datasheets, auto forms, relationships view, Datatype object fields | In review: `app/openbase.c`, checked in a lab |
 | B3, B4 | Designers and reports; ARexx and runtime mode | Not started |
+
+## Using OpenBase (B2)
+
+One window: the toolbar, the object browser (the project's tables, then
+Relationships) on the left, the table's datasheet with the record's form
+under it, and the status bar.
+
+- **Project > New Project...** makes a `.oadb` file; **Open Project...**
+  (Amiga-O) opens one, as does a project given on the command line or as
+  a Workbench argument (`OpenBase Work:Shop.oadb`). One OpenBase at a
+  time has a project; a second is told it is open elsewhere.
+  **Check Project** runs SQLite's integrity and key checks.
+- **Table > New Table...** (Amiga-T) and **Design Table...**: the table's
+  fields, each a Text, Memo, Whole number, Number, Currency, Date, Time,
+  Date and time, Yes/No, Lookup or Datatype object, required or not. A
+  Lookup field points to another table (Points to): a record that points
+  to nothing is refused, and so is deleting a record others point to.
+  Design Table changes a table and keeps its records.
+- **Relationships** (Amiga-R): the tables as boxes, a line from each
+  Lookup field to the key it points to, and each relationship in words.
+- **Record**: New Record (Amiga-N), Save Record (Amiga-S), Undo Changes
+  (Amiga-Z), Delete Record... (the toolbar). Cursor up and down move
+  through the records. A value the field can't take is refused with a
+  sentence naming the field.
+- **Load Picture...** (Amiga-L) keeps any file a datatype reads in the
+  record (a picture is drawn beside the form); Clear Picture takes it out.
+
+## Building for the Amiga
+
+```sh
+sh build-amiga.sh                 # Cradle's stove_build (target .): fetches the pinned pieces, then:
+OS32_GCC16=~/AmigaChrome/stoves/os32-gcc16 SQLITE_SRC=... SQLITE_PORT=... OGT=... sh build-os3.sh [OUT]
+```
+
+`build-amiga.sh` fetches SQLite by `scripts/sqlite.lock`, and
+DalsinAI/openamigasqlite and DalsinAI/opengadtools at the commits in
+`deps/`. OUT holds `OpenBase` and `Images/Toolbar/`: copy both into one
+drawer. A 68040 with or without an FPU (GCC 16, with
+`-fno-late-combine-instructions`).
 
 ## Building and testing the core
 
@@ -43,7 +82,9 @@ and never committed here. CI (`.github/workflows/host-tests.yml`) runs both.
 | `include/` | The core's headers: `openbase_core.h` includes them all |
 | `src/core/` | Projects (`ob_project.c`), field types (`ob_types.c`), tables and relationships (`ob_schema.c`), CSV (`ob_csv.c`), queries (`ob_query.c`) |
 | `tests/` | The host tests; `tests/sql/` holds the query generator's golden files |
-| `app/` | The Amiga program, from phase B2 |
+| `app/` | The Amiga program: `openbase.c`, its stack (`ob_stack.c`) and the last drawer (`lastdir.h`) |
+| `Images/Toolbar/` | The Chrome toolbar pictures (opengadtools' `tools/iconset`) |
+| `deps/` | The openamigasqlite and opengadtools commits the Amiga build fetches |
 
 ## Direction
 

@@ -11,27 +11,36 @@ OpenBase, the Open relational database and application builder: tables, visual q
 _Updated 25 October 2026 by Team 5._ Dale said to start (25 October, 02:55)
 and accepted the design's recommended answers: `docs/gfoffice/Design-OpenBase.md`
 in DalsinAI/gfoffice. Phase B1, the portable core, is in `src/core/` with host
-tests in `tests/` (`make test`, `make check`).
+tests in `tests/` (`make test`, `make check`), merged (#8). Phase B2, the
+program, is `app/openbase.c` on the core, built by `build-amiga.sh` with
+Cradle's os32-gcc16 stove and checked in a lab (project, tables, records,
+a Lookup that refuses an orphan and a delete, a picture field, quit and
+reopen). Records and Datatype objects for the program are in
+`src/core/ob_record.c`.
 
 ## Open pull requests
 
-- Team 5's B1 draft (branch `team5/openbase-b1-20261025`).
+- Team 5's B2 (branch `team5/openbase-b2-20261025`).
 
 ## Next step
 
-1. B0 (openamigasqlite and the lab): the soft-float, single-thread flavour;
-   `unix-dotfile` locking; `DELETE` against `TRUNCATE` journals; the RAM:
-   issue; the size and speed of design section 11.3. Its answers go into
-   `ob_config` (`include/ob_core.h`), the one place they are set.
-2. B2: the Amiga program in `app/` on the core.
+1. B0's rest in the lab: `DELETE` against `TRUNCATE` journals, the RAM:
+   issue, the size and speed of design section 11.3 (the soft-float,
+   single-thread SQLite and the semaphore in place of file locks are in
+   `build-os3.sh` and `app/openbase.c`). Answers go into `ob_config`
+   (`include/ob_core.h`), the one place they are set.
+2. B2's rest: a Lookup shown by the record it points to (not its number),
+   CSV in and out from the menus, a hideable browser, the datasheet
+   sorted by a column.
+3. B3: the query, form and report designers.
 
 ## Waiting on @SacredTrees
 
-- Nothing for B1. B0 needs the stove and a lab.
+- Nothing.
 
 ## Who owns it
 
-Team 5 (B1).
+Team 5 (B1, B2).
 
 ## Capsules
 
