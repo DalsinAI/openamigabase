@@ -298,6 +298,7 @@ static void say_draw(struct Window *rw, char lines[][SAY_LINE], int nl, int w, i
     ogt_fill(&ctx, rp, "window", rw->BorderLeft, rw->BorderTop, w, h);
     for (i = 0; i < nl; ++i)
         ogt_text(rp, ogt_pen(&ctx, "text"), rw->BorderLeft + 16, rw->BorderTop + 14 + i * lh, lines[i], w - 32);
+    RefreshGList(rw->FirstGadget, rw, NULL, -1);    /* the buttons, over the fill */
     GT_RefreshWindow(rw, NULL);
 }
 
@@ -465,7 +466,9 @@ static int ask_file(int save, const char *title, const char *initial, const char
     struct FileRequester *fr;
     char last[512];
     int ok = 0;
-    lastdir_get(PROGRAM, last, sizeof last);
+    /* projects and the files put in records each remember their own drawer */
+    const char *keep = pattern ? PROGRAM : PROGRAM "Files";
+    lastdir_get(keep, last, sizeof last);
     fr = AllocAslRequestTags(ASL_FileRequest,
         ASLFR_TitleText, (ULONG)title,
         ASLFR_InitialDrawer, (ULONG)last,
@@ -480,7 +483,7 @@ static int ask_file(int save, const char *title, const char *initial, const char
     if (!fr) return 0;
     if (AslRequestTags(fr, TAG_DONE) && fr->fr_File[0]) {
         snprintf(out, out_size, "%s", fr->fr_Drawer);
-        lastdir_put(PROGRAM, (const char *)fr->fr_Drawer);
+        lastdir_put(keep, (const char *)fr->fr_Drawer);
         AddPart((STRPTR)out, fr->fr_File, out_size);
         ok = 1;
     }
@@ -1174,9 +1177,13 @@ static void compute_columns(void)
                 colw[i] += add;
                 total += add;
             }
-        if (total < avail) {
+        if (total < avail) {                     /* the rest to all but the key and the yes/no columns */
+            int m = 0;
             extra = avail - total;
-            for (i = 0; i < cur->nfields; ++i) colw[i] += extra / cur->nfields;
+            for (i = 0; i < cur->nfields; ++i)
+                if (cur->fields[i].type != OB_TYPE_COUNTER && cur->fields[i].type != OB_TYPE_YESNO) m++;
+            for (i = 0; m && i < cur->nfields; ++i)
+                if (cur->fields[i].type != OB_TYPE_COUNTER && cur->fields[i].type != OB_TYPE_YESNO) colw[i] += extra / m;
         }
     }
 }
@@ -1388,7 +1395,7 @@ static void draw_form(void)
 static void draw_relations(void)
 {
     struct RastPort *rp = win->RPort;
-    int i, k, bw = 190, gapx = 50, gapy = 30, cols, lh = fh + 4, maxrows = 8, ybase;
+    int i, k, bw = 190, gapx = 80, gapy = 30, cols, lh = fh + 4, maxrows = 8, ybase;
     static int bx[256], by[256], bh[256];
     LONG line = ogt_pen(&ctx, "group.line"), text = ogt_pen(&ctx, "text"), accent = ogt_pen(&ctx, "accent");
     ogt_fill(&ctx, rp, "window", main_box.x, main_box.y, main_box.w, main_box.h);
@@ -1589,7 +1596,7 @@ static int design_table(int existing)
     int nf = 0, i, done = 0, made = 0, picked = -1, cur_type = 0, cur_req = 0, cur_parent = 0, np = 0;
     /* gadgets are placed from the window's corner: inside its borders and title bar */
     int bl = scr->WBorLeft, bt = scr->WBorTop + scr->Font->ta_YSize + 1;
-    int ww = 520, wh, lh = fh + 6, x0 = bl + 110, fw = ww - 110 - 16;
+    int ww = 600, wh, lh = fh + 6, x0 = bl + 110, fw = ww - 110 - 16;
     char tname[OB_NAME_MAX + 1] = "";
     ob_error e;
     if (!proj || (existing && !cur)) return 0;
