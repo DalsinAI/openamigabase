@@ -156,6 +156,7 @@ int main(int argc, char **argv)
     RUN("schema", suite_schema());
     RUN("csv", suite_csv());
     RUN("query", suite_query());
+    RUN("record", suite_record());
     RUN("golden", suite_golden(sql_dir));
     RUN("fuzz", suite_fuzz());
     RUN("alloc", suite_alloc());
