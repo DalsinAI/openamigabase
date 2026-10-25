@@ -1,0 +1,11 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Customers	
+table	Orders	
+join	0	id	1	customer	inner
+column	0	Name		1	asc	group	text
+column	1	Total		1	none	sum	currency
+criteria	1	0	> 100.00
+end

@@ -1,0 +1,10 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Orders	
+column	0	id		1	asc	none	counter
+column	0	Paid		1	none	none	yesno
+column	0	Total		1	none	none	currency
+criteria	1	0	No
+end

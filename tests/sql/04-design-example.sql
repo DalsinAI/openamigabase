@@ -1,0 +1,1 @@
+SELECT Customers.Name, Customers.Town, sum(Orders.Total) AS SumOfTotal FROM Customers JOIN Orders ON Customers.id = Orders.customer WHERE (Customers.Town = 'Leeds' AND Orders.Day >= '2026-01-01') OR Customers.Town = 'York' GROUP BY Customers.Name, Customers.Town ORDER BY Customers.Name

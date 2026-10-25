@@ -1,0 +1,15 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	YMD	.	,
+table	Customers	
+table	Orders	
+join	0	id	1	customer	inner
+column	0	Name		1	asc	group	text
+column	0	Town		1	none	group	text
+column	1	Day		0	none	where	date
+column	1	Total		1	none	sum	currency
+criteria	1	0	Leeds
+criteria	1	1	York
+criteria	2	0	>= 2026-01-01
+end

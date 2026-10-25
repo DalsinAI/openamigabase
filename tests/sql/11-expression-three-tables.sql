@@ -1,0 +1,1 @@
+SELECT Orders.Day, Products.Name AS Product, "Order Lines".Qty, "Order Lines".Qty * Products.Price AS Value FROM "Order Lines" JOIN Products ON Products.id = "Order Lines".product JOIN Orders ON Orders.id = "Order Lines"."order" WHERE ("Order Lines".Qty * Products.Price) >= 2000 ORDER BY Orders.Day, Products.Name

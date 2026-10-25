@@ -1,0 +1,9 @@
+OpenBase query	1
+distinct	0
+limit	0
+formats	DMY	,	.
+table	Orders	
+column	0	id		1	asc	none	counter
+column	0	Day		1	none	none	date
+criteria	1	0	between 01/01/2026 and 31/03/2026
+end
