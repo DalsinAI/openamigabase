@@ -198,6 +198,7 @@ static ob_table **rel_tables;                /* each table's design, as the view
 
 static void draw_all(void);
 static void draw_status(void);
+static void drop_form(void);
 static void layout(void);
 static void relayout(void);
 
@@ -249,16 +250,176 @@ static void read_theme_choice(void)
     free(s);
 }
 
+/* ---- Messages ----
+ * EasyRequest cut its lines short on the lab's RTG screen ("Customer: 99 doesn't match a recor"; OpenCalc
+ * saw the same), so OpenBase says things in a window of its own, as wide as its widest line in the font it
+ * draws with (up to two thirds of the screen; longer lines wrap at spaces). The buttons are numbered as
+ * EasyRequest numbers them: 1, 2, ... from the left, the last 0. Return answers a lone OK, Escape the last
+ * button; the main window takes no input meanwhile. */
+#define SAY_LINES 16
+#define SAY_LINE 160
+#define SAY_BUTTONS 3
+
+/* text's paragraphs ('\n' between them) broken to maxw pixels in rp's font. The count. */
+static int say_wrap(struct RastPort *rp, const char *p, int maxw, char lines[][SAY_LINE], int maxlines)
+{
+    int n = 0;
+    while (n < maxlines) {
+        const char *end = strchr(p, '\n');
+        int len = end ? (int)(end - p) : (int)strlen(p);
+        for (;;) {
+            int fit = len < SAY_LINE - 1 ? len : SAY_LINE - 1, cut;
+            while (fit > 1 && TextLength(rp, (STRPTR)p, fit) > maxw) fit--;
+            cut = fit;
+            if (fit < len) {                     /* back to the last space, when there is one */
+                int k = fit;
+                while (k > 0 && p[k] != ' ') k--;
+                if (k > 0) cut = k;
+            }
+            memcpy(lines[n], p, (size_t)cut);
+            lines[n][cut] = 0;
+            n++;
+            p += cut;
+            len -= cut;
+            while (len > 0 && *p == ' ') { p++; len--; }
+            if (len <= 0 || n >= maxlines) break;
+        }
+        if (!end || !end[1]) break;
+        p = end + 1;
+    }
+    return n;
+}
+
+static void say_draw(struct Window *rw, char lines[][SAY_LINE], int nl, int w, int h)
+{
+    struct RastPort *rp = rw->RPort;
+    int i, lh = fh + 4;
+    SetFont(rp, font);
+    ogt_fill(&ctx, rp, "window", rw->BorderLeft, rw->BorderTop, w, h);
+    for (i = 0; i < nl; ++i)
+        ogt_text(rp, ogt_pen(&ctx, "text"), rw->BorderLeft + 16, rw->BorderTop + 14 + i * lh, lines[i], w - 32);
+    GT_RefreshWindow(rw, NULL);
+}
+
+static int say(const char *title, const char *text, const char *buttons)
+{
+    static char lines[SAY_LINES][SAY_LINE];
+    char labels[SAY_BUTTONS][32];
+    struct Gadget *glist = NULL, *g;
+    struct NewGadget ng;
+    struct Window *rw = NULL;
+    struct Requester block;
+    struct RastPort trp;
+    const char *b = buttons;
+    int nb = 0, nl, i, bw = 80, tw = 0, lh = fh + 4, bh = fh + 8, ww, wh, maxw, answer = -1, bl, bt, blocked = 0;
+    if (scr && font) {
+        while (*b && nb < SAY_BUTTONS) {
+            const char *bar = strchr(b, '|');
+            int n = bar ? (int)(bar - b) : (int)strlen(b);
+            if (n > 31) n = 31;
+            memcpy(labels[nb], b, (size_t)n);
+            labels[nb++][n] = 0;
+            if (!bar) break;
+            b = bar + 1;
+        }
+        if (!nb) { strcpy(labels[0], "OK"); nb = 1; }
+        InitRastPort(&trp);
+        SetFont(&trp, font);
+        maxw = scr->Width * 2 / 3 > 640 ? 640 : scr->Width * 2 / 3;
+        nl = say_wrap(&trp, text ? text : "", maxw, lines, SAY_LINES);
+        for (i = 0; i < nl; ++i) {
+            int w = TextLength(&trp, (STRPTR)lines[i], strlen(lines[i]));
+            if (w > tw) tw = w;
+        }
+        for (i = 0; i < nb; ++i) {
+            int w = TextLength(&trp, (STRPTR)labels[i], strlen(labels[i])) + 28;
+            if (w > bw) bw = w;
+        }
+        ww = tw + 32;
+        if (ww < nb * (bw + 16) + 16) ww = nb * (bw + 16) + 16;
+        if (ww < 260) ww = 260;
+        wh = 14 + nl * lh + 14 + bh + 10;
+        bl = scr->WBorLeft;
+        bt = scr->WBorTop + scr->Font->ta_YSize + 1;
+        g = CreateContext(&glist);
+        memset(&ng, 0, sizeof ng);
+        ng.ng_TextAttr = &font_attr;
+        ng.ng_VisualInfo = vi;
+        ng.ng_Flags = PLACETEXT_IN;
+        ng.ng_Width = bw;
+        ng.ng_Height = bh;
+        ng.ng_TopEdge = bt + wh - bh - 10;
+        for (i = 0; i < nb && g; ++i) {
+            /* the first at the left, the last at the right, one between them in the middle */
+            ng.ng_LeftEdge = nb == 1 || (i > 0 && i < nb - 1) ? bl + (ww - bw) / 2 : i == 0 ? bl + 16 : bl + ww - 16 - bw;
+            ng.ng_GadgetText = (STRPTR)labels[i];
+            ng.ng_GadgetID = i == nb - 1 ? 0 : i + 1;
+            g = CreateGadget(BUTTON_KIND, g, &ng, TAG_DONE);
+        }
+        if (g) {
+            int ow = ww + bl + scr->WBorRight, oh = wh + bt + scr->WBorBottom;
+            int x = win ? win->LeftEdge + (win->Width - ow) / 2 : (scr->Width - ow) / 2;
+            int y = win ? win->TopEdge + (win->Height - oh) / 3 : (scr->Height - oh) / 2;
+            if (x + ow > scr->Width) x = scr->Width - ow;
+            if (y + oh > scr->Height) y = scr->Height - oh;
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            rw = OpenWindowTags(NULL,
+                WA_PubScreen, (ULONG)scr, WA_Left, x, WA_Top, y, WA_InnerWidth, ww, WA_InnerHeight, wh,
+                WA_Title, (ULONG)title, WA_Gadgets, (ULONG)glist, WA_DragBar, TRUE, WA_DepthGadget, TRUE,
+                WA_Activate, TRUE, WA_RMBTrap, TRUE, WA_SimpleRefresh, TRUE,
+                WA_IDCMP, IDCMP_GADGETUP | IDCMP_VANILLAKEY | IDCMP_REFRESHWINDOW | BUTTONIDCMP,
+                TAG_DONE);
+        }
+    }
+    if (!rw) {                                   /* no room for a window: the system's requester */
+        struct EasyStruct es = { sizeof(struct EasyStruct), 0, (UBYTE *)title, (UBYTE *)"%s", (UBYTE *)buttons };
+        if (glist) FreeGadgets(glist);
+        answer = (int)EasyRequest(win, &es, NULL, (ULONG)text);
+        if (win) ActivateWindow(win);
+        return answer;
+    }
+    if (win) {
+        InitRequester(&block);
+        blocked = Request(&block, win) != 0;
+        SetWindowPointer(win, WA_BusyPointer, TRUE, TAG_DONE);
+    }
+    say_draw(rw, lines, nl, ww, wh);
+    while (answer < 0) {
+        struct IntuiMessage *m;
+        WaitPort(rw->UserPort);
+        while (answer < 0 && (m = GT_GetIMsg(rw->UserPort))) {
+            ULONG cls = m->Class;
+            UWORD code = m->Code;
+            struct Gadget *gg = (struct Gadget *)m->IAddress;
+            GT_ReplyIMsg(m);
+            if (cls == IDCMP_GADGETUP && gg) answer = gg->GadgetID;
+            else if (cls == IDCMP_VANILLAKEY && (code == 27 || (code == 13 && nb == 1))) answer = 0;
+            else if (cls == IDCMP_REFRESHWINDOW) {
+                GT_BeginRefresh(rw);
+                say_draw(rw, lines, nl, ww, wh);
+                GT_EndRefresh(rw, TRUE);
+            }
+        }
+    }
+    CloseWindow(rw);
+    FreeGadgets(glist);
+    if (win) {
+        if (blocked) EndRequest(&block, win);
+        SetWindowPointer(win, TAG_DONE);
+        ActivateWindow(win);
+    }
+    return answer;
+}
+
 static void tell(const char *title, const char *text)
 {
-    struct EasyStruct es = { sizeof(struct EasyStruct), 0, (UBYTE *)title, (UBYTE *)"%s", (UBYTE *)"OK" };
-    EasyRequest(win, &es, NULL, (ULONG)text);
+    say(title, text, "OK");
 }
 
 static int ask(const char *title, const char *text, const char *buttons)
 {
-    struct EasyStruct es = { sizeof(struct EasyStruct), 0, (UBYTE *)title, (UBYTE *)"%s", (UBYTE *)buttons };
-    return (int)EasyRequest(win, &es, NULL, (ULONG)text);
+    return say(title, text, buttons);
 }
 
 static void set_status(const char *s)
@@ -324,6 +485,7 @@ static int ask_file(int save, const char *title, const char *initial, const char
         ok = 1;
     }
     FreeAslRequest(fr);
+    if (win) ActivateWindow(win);
     return ok;
 }
 
@@ -620,6 +782,9 @@ static void load_record(void)
 static void free_table_view(void)
 {
     int i;
+    /* the form's gadgets hold this table's texts: gone first, or the next layout reads them into the next
+     * table's record (row 1 of one table showed row 1 of the table before) */
+    drop_form();
     free_texts_of_record();
     cache_clear();
     pic_forget();
@@ -661,11 +826,7 @@ static void show_object(int i)
         load_keys();
         row = nkeys ? 0 : -1;
         load_record();
-        {
-            char s[120];
-            snprintf(s, sizeof s, "%.60s: %d record%s.", cur->name, nkeys, nkeys == 1 ? "" : "s");
-            set_status(s);
-        }
+        set_status(nkeys ? "" : "No records yet: Record > New Record adds one.");
     } else {
         int k;
         if (ob_relation_list(proj, &rels, &nrels, &e) != OB_OK) {
@@ -825,14 +986,21 @@ static void read_form(void)
     }
 }
 
-static void free_form(void)
+/* The form's gadgets taken away; what they hold is not read (drop_form), or read first (free_form). */
+static void drop_form(void)
 {
     if (!win || !form_list) return;
-    read_form();
     RemoveGList(win, form_list, -1);
     FreeGadgets(form_list);
     form_list = NULL;
     nform = 0;
+}
+
+static void free_form(void)
+{
+    if (!win || !form_list) return;
+    read_form();
+    drop_form();
 }
 
 /* The form's gadgets for the record, in the form's box: as many fields as fit (form_left: those that don't). */
@@ -974,20 +1142,42 @@ static void compute_columns(void)
     if (!cur) return;
     SetFont(rp, font);
     for (i = 0; i < cur->nfields; ++i) {
-        int w = ogt_text_width(rp, field_label(&cur->fields[i])) + 16;
-        int min = cur->fields[i].type == OB_TYPE_COUNTER || cur->fields[i].type == OB_TYPE_YESNO ? 40 : 90;
+        /* as wide as its name, and as what the type holds */
+        const char *sample;
+        int w = ogt_text_width(rp, field_label(&cur->fields[i])) + 16, min;
+        switch (cur->fields[i].type) {
+        case OB_TYPE_COUNTER: case OB_TYPE_LOOKUP: sample = "00000"; break;
+        case OB_TYPE_YESNO: sample = "Yes"; break;
+        case OB_TYPE_INTEGER: sample = "0000000"; break;
+        case OB_TYPE_NUMBER: case OB_TYPE_CURRENCY: sample = "1234567.89"; break;
+        case OB_TYPE_DATE: sample = "2026-10-25"; break;
+        case OB_TYPE_TIME: sample = "12:00:00"; break;
+        case OB_TYPE_DATETIME: sample = "2026-10-25 12:00:00"; break;
+        case OB_TYPE_OBJECT: sample = "picture-name.png"; break;
+        default: sample = "A name of some length"; break;
+        }
+        min = ogt_text_width(rp, sample) + 16;
         if (w < min) w = min;
-        if (w > 220) w = 220;
+        if (w > 240) w = 240;
         colw[i] = w;
         total += w;
     }
-    /* room to spare: to the text columns */
+    /* room to spare: to the text columns, up to 320 pixels each, then to all of them */
     if (total < avail && cur->nfields) {
         int extra = avail - total, n = 0;
         for (i = 0; i < cur->nfields; ++i)
             if (ob_type_is_text(cur->fields[i].type)) n++;
-        for (i = 0; i < cur->nfields; ++i)
-            if (!n || ob_type_is_text(cur->fields[i].type)) colw[i] += extra / (n ? n : cur->nfields);
+        for (i = 0; n && i < cur->nfields; ++i)
+            if (ob_type_is_text(cur->fields[i].type)) {
+                int add = extra / n;
+                if (colw[i] + add > 320) add = colw[i] < 320 ? 320 - colw[i] : 0;
+                colw[i] += add;
+                total += add;
+            }
+        if (total < avail) {
+            extra = avail - total;
+            for (i = 0; i < cur->nfields; ++i) colw[i] += extra / cur->nfields;
+        }
     }
 }
 
@@ -1228,16 +1418,19 @@ static void draw_relations(void)
                      bx[i] + 10, by[i] + lh + 5 + r * lh, name, bw - 16);
         }
     }
-    /* the lines: from the field's row to the other table's title */
+    /* the lines: from the field's row to the other table's key (or its title) */
     for (k = 0; k < nrels; ++k) {
-        int c = table_index(rels[k].child), p = table_index(rels[k].parent), fr = 0, x1, y1, x2, y2;
-        const ob_table *t;
+        int c = table_index(rels[k].child), p = table_index(rels[k].parent), fr = 0, kr, x1, y1, x2, y2;
+        const ob_table *t, *pt;
         if (c < 0 || p < 0 || c >= 256 || p >= 256) continue;
         t = rel_tables ? rel_tables[c] : NULL;
+        pt = rel_tables ? rel_tables[p] : NULL;
         for (fr = 0; t && fr < t->nfields && fr < maxrows; ++fr)
             if (!strcmp(t->fields[fr].name, rels[k].child_fields[0])) break;
+        for (kr = 0; pt && kr < pt->nfields && kr < maxrows; ++kr)
+            if (pt->fields[kr].type == OB_TYPE_COUNTER) break;
         y1 = by[c] + lh + 5 + fr * lh + fh / 2;
-        y2 = by[p] + lh / 2 + 1;
+        y2 = pt && kr < pt->nfields && kr < maxrows ? by[p] + lh + 5 + kr * lh + fh / 2 : by[p] + lh / 2 + 1;
         if (bx[p] >= bx[c] + bw) { x1 = bx[c] + bw; x2 = bx[p]; }
         else if (bx[p] + bw <= bx[c]) { x1 = bx[c]; x2 = bx[p] + bw; }
         else { x1 = bx[c] + bw; x2 = bx[p] + bw; }
@@ -1259,10 +1452,11 @@ static void draw_relations(void)
     {
         int rowsdown = (ntables + cols - 1) / cols, y = ybase + rowsdown * ((maxrows + 2) * lh + gapy);
         for (k = 0; k < nrels && y + fh < main_box.y + main_box.h; ++k, y += fh + 4) {
-            char s[480];
-            snprintf(s, sizeof s, "%.60s.%.60s points to %.60s: no %.60s record without its %.60s, and one %.60s "
-                     "points to can't be deleted.", rels[k].child, rels[k].child_fields[0], rels[k].parent,
-                     rels[k].child, rels[k].parent, rels[k].child);
+            char s[600];
+            snprintf(s, sizeof s, "%.60s.%.60s points to %.60s: each %.60s record needs its %.60s record, and a "
+                     "%.60s record that %.60s records point to can't be deleted.", rels[k].child,
+                     rels[k].child_fields[0], rels[k].parent, rels[k].child, rels[k].parent, rels[k].parent,
+                     rels[k].child);
             ogt_text(rp, text, main_box.x + 20, y, s, main_box.w - 40);
         }
     }
@@ -1308,6 +1502,7 @@ static void draw_all(void)
     ogt_vline(rp, ogt_pen(&ctx, "group.line"), browser_box.x + browser_box.w, browser_box.y, browser_box.h);
     draw_main();
     draw_status();
+    ogt_status_draw(&sbar);                      /* unchanged texts aren't drawn again by ogt_status_set */
 }
 
 static void relayout(void)
@@ -1392,7 +1587,9 @@ static int design_table(int existing)
     struct NewGadget ng;
     struct Window *rw = NULL;
     int nf = 0, i, done = 0, made = 0, picked = -1, cur_type = 0, cur_req = 0, cur_parent = 0, np = 0;
-    int ww = 520, wh, lh = fh + 6, x0 = 110;
+    /* gadgets are placed from the window's corner: inside its borders and title bar */
+    int bl = scr->WBorLeft, bt = scr->WBorTop + scr->Font->ta_YSize + 1;
+    int ww = 520, wh, lh = fh + 6, x0 = bl + 110, fw = ww - 110 - 16;
     char tname[OB_NAME_MAX + 1] = "";
     ob_error e;
     if (!proj || (existing && !cur)) return 0;
@@ -1424,7 +1621,7 @@ static int design_table(int existing)
     ng.ng_TextAttr = &font_attr;
     ng.ng_VisualInfo = vi;
     g = CreateContext(&glist);
-    ng.ng_LeftEdge = x0; ng.ng_TopEdge = 8; ng.ng_Width = ww - x0 - 16; ng.ng_Height = lh;
+    ng.ng_LeftEdge = x0; ng.ng_TopEdge = bt + 8; ng.ng_Width = fw; ng.ng_Height = lh;
     ng.ng_GadgetText = (STRPTR)"Table name"; ng.ng_GadgetID = D_NAME; ng.ng_Flags = PLACETEXT_LEFT;
     g = gname = CreateGadget(STRING_KIND, g, &ng, GTST_String, (ULONG)tname, GTST_MaxChars, OB_NAME_MAX,
                              GA_Disabled, existing, TAG_DONE);
@@ -1437,7 +1634,7 @@ static int design_table(int existing)
     g = gtype = CreateGadget(CYCLE_KIND, g, &ng, GTCY_Labels, (ULONG)type_labels, GTCY_Active, 0, TAG_DONE);
     ng.ng_LeftEdge = x0 + 300; ng.ng_Width = 26; ng.ng_GadgetText = (STRPTR)"Required"; ng.ng_GadgetID = D_REQUIRED;
     g = greq = CreateGadget(CHECKBOX_KIND, g, &ng, GTCB_Scaled, TRUE, TAG_DONE);
-    ng.ng_LeftEdge = x0; ng.ng_TopEdge += lh + 4; ng.ng_Width = ww - x0 - 16; ng.ng_GadgetText = (STRPTR)"Points to";
+    ng.ng_LeftEdge = x0; ng.ng_TopEdge += lh + 4; ng.ng_Width = fw; ng.ng_GadgetText = (STRPTR)"Points to";
     ng.ng_GadgetID = D_PARENT;
     g = gparent = CreateGadget(CYCLE_KIND, g, &ng, GTCY_Labels, (ULONG)parents, GTCY_Active, 0, GA_Disabled, TRUE,
                                TAG_DONE);
@@ -1446,12 +1643,12 @@ static int design_table(int existing)
     g = CreateGadget(BUTTON_KIND, g, &ng, TAG_DONE);
     ng.ng_LeftEdge = x0 + 150; ng.ng_GadgetText = (STRPTR)"Remove Field"; ng.ng_GadgetID = D_REMOVE;
     g = CreateGadget(BUTTON_KIND, g, &ng, TAG_DONE);
-    ng.ng_TopEdge += lh + 18; ng.ng_LeftEdge = 16; ng.ng_Width = 160;
+    ng.ng_TopEdge += lh + 18; ng.ng_LeftEdge = bl + 16; ng.ng_Width = 160;
     ng.ng_GadgetText = (STRPTR)(existing ? "Change Table" : "Make Table"); ng.ng_GadgetID = D_MAKE;
     g = CreateGadget(BUTTON_KIND, g, &ng, TAG_DONE);
-    ng.ng_LeftEdge = ww - 16 - 120; ng.ng_Width = 120; ng.ng_GadgetText = (STRPTR)"Cancel"; ng.ng_GadgetID = D_CANCEL;
+    ng.ng_LeftEdge = bl + ww - 16 - 120; ng.ng_Width = 120; ng.ng_GadgetText = (STRPTR)"Cancel"; ng.ng_GadgetID = D_CANCEL;
     g = CreateGadget(BUTTON_KIND, g, &ng, TAG_DONE);
-    wh = ng.ng_TopEdge + lh + 12;
+    wh = ng.ng_TopEdge + lh + 12 - bt;
     if (!g) goto out;
     rw = OpenWindowTags(NULL,
         WA_Title, (ULONG)(existing ? "Design Table" : "New Table"), WA_PubScreen, (ULONG)scr,
@@ -1586,6 +1783,7 @@ static int design_table(int existing)
 out:
     if (rw) CloseWindow(rw);
     if (glist) FreeGadgets(glist);
+    if (win) ActivateWindow(win);
     if (made) {
         load_tables();
         show_object(table_index(tname));
